@@ -139,15 +139,6 @@ public class PluginMain extends JavaPlugin {
             log("Error loading config");
             return;
         }
-        
-        if (ConfigProvider.getAllowMetrics()) {
-	        try {
-	            m_metrics = new MetricsLite(this);
-	            m_metrics.start();
-	        } catch (IOException e) {
-	            log("Error initializing MCStats: " + e.getMessage());
-	        }
-        }
 
         s_console = getServer().getConsoleSender();
         WorldEditPlugin worldEdit = getWorldEdit(this);

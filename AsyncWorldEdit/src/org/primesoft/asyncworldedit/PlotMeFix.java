@@ -114,19 +114,15 @@ public class PlotMeFix implements Listener {
         File plotme = new File(plugins, "PlotMe");
         File config = new File(plotme, "config.yml");
         if (config.exists()) {
-            System.out.println(4);
-
             yaml = YamlConfiguration.loadConfiguration(config);
             String language = yaml.getString("Language");
             File captions = new File(plugins, "PlotMe" + File.separator + "caption-" + language + ".yml");
             if (captions.exists()) {
-                System.out.println(1);
                 yaml = YamlConfiguration.loadConfiguration(captions);
                 String clear = yaml.getString("CommandClear");
                 String reset = yaml.getString("CommandReset");
                 File jar = new File(plugins, "PlotMe.jar");
                 if (jar.exists()) {
-                    System.out.println(2);
                     try {
                         ZipFile zip = new ZipFile(jar);
                         ZipEntry in = zip.getEntry("plugin.yml");
@@ -136,8 +132,6 @@ public class PlotMeFix implements Listener {
                         aliases.add("plotme");
                         String base = "/%s %s";
                         for (String alias : aliases) {
-                            System.out.println(3);
-
                             clearAliases.add(String.format(base, alias, clear).toLowerCase());
                             resetAliases.add(String.format(base, alias, reset).toLowerCase());
                         }
@@ -154,17 +148,12 @@ public class PlotMeFix implements Listener {
 
     @EventHandler
     public void onCommandPreProcess(PlayerCommandPreprocessEvent event) {
-        System.out.println(event.getMessage());
-        for (String alias : clearAliases) {
-            System.out.println("+ + " + alias);
-        }
         if (isCommand(clearAliases, event.getMessage())) {
             event.setCancelled(true);
             handlePlotClear(event.getPlayer());
         } else if (isCommand(resetAliases, event.getMessage())) {
             event.setCancelled(true);
             handlePlotReset(event.getPlayer());
-            System.out.println("t");
         }
     }
 

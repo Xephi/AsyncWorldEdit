@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="module_asyncworldedit" default="compile.module.asyncworldedit">
+  <dirname property="module.asyncworldedit.basedir" file="${ant.file.module_asyncworldedit}"/>
+  
+  <property name="module.jdk.home.asyncworldedit" value="${project.jdk.home}"/>
+  <property name="module.jdk.bin.asyncworldedit" value="${project.jdk.bin}"/>
+  <property name="module.jdk.classpath.asyncworldedit" value="${project.jdk.classpath}"/>
+  
+  <property name="compiler.args.asyncworldedit" value="-encoding UTF-8 -source 1.7 ${compiler.args}"/>
+  
+  <property name="asyncworldedit.output.dir" value="${module.asyncworldedit.basedir}/../out/production/AsyncWorldEdit"/>
+  <property name="asyncworldedit.testoutput.dir" value="${module.asyncworldedit.basedir}/../out/test/AsyncWorldEdit"/>
+  
+  <path id="asyncworldedit.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="asyncworldedit.module.production.classpath">
+    <path refid="${module.jdk.classpath.asyncworldedit}"/>
+    <path refid="library.barapi.classpath"/>
+    <path refid="library.bukkit-1.7.2-r0.3.classpath"/>
+    <path refid="library.plotme.classpath"/>
+    <path refid="library.blockshub.classpath"/>
+    <path refid="library.worldeditold.classpath"/>
+  </path>
+  
+  <path id="asyncworldedit.runtime.production.module.classpath">
+    <pathelement location="${asyncworldedit.output.dir}"/>
+    <path refid="library.barapi.classpath"/>
+    <path refid="library.bukkit-1.7.2-r0.3.classpath"/>
+    <path refid="library.plotme.classpath"/>
+    <path refid="library.blockshub.classpath"/>
+    <path refid="library.worldeditold.classpath"/>
+  </path>
+  
+  <path id="asyncworldedit.module.classpath">
+    <path refid="${module.jdk.classpath.asyncworldedit}"/>
+    <pathelement location="${asyncworldedit.output.dir}"/>
+    <path refid="library.barapi.classpath"/>
+    <path refid="library.bukkit-1.7.2-r0.3.classpath"/>
+    <path refid="library.plotme.classpath"/>
+    <path refid="library.blockshub.classpath"/>
+    <path refid="library.worldeditold.classpath"/>
+  </path>
+  
+  <path id="asyncworldedit.runtime.module.classpath">
+    <pathelement location="${asyncworldedit.testoutput.dir}"/>
+    <pathelement location="${asyncworldedit.output.dir}"/>
+    <path refid="library.barapi.classpath"/>
+    <path refid="library.bukkit-1.7.2-r0.3.classpath"/>
+    <path refid="library.plotme.classpath"/>
+    <path refid="library.blockshub.classpath"/>
+    <path refid="library.worldeditold.classpath"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.asyncworldedit">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.asyncworldedit">
+    <patternset refid="excluded.from.module.asyncworldedit"/>
+  </patternset>
+  
+  <path id="asyncworldedit.module.sourcepath">
+    <dirset dir="${module.asyncworldedit.basedir}">
+      <include name="src"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.asyncworldedit" depends="compile.module.asyncworldedit.production,compile.module.asyncworldedit.tests" description="Compile module AsyncWorldEdit"/>
+  
+  <target name="compile.module.asyncworldedit.production" depends="register.custom.compilers" description="Compile module AsyncWorldEdit; production classes">
+    <mkdir dir="${asyncworldedit.output.dir}"/>
+    <javac2 destdir="${asyncworldedit.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.asyncworldedit}/javac">
+      <compilerarg line="${compiler.args.asyncworldedit}"/>
+      <bootclasspath refid="asyncworldedit.module.bootclasspath"/>
+      <classpath refid="asyncworldedit.module.production.classpath"/>
+      <src refid="asyncworldedit.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.asyncworldedit"/>
+    </javac2>
+    
+    <copy todir="${asyncworldedit.output.dir}">
+      <fileset dir="${module.asyncworldedit.basedir}/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="compile.module.asyncworldedit.tests" depends="register.custom.compilers,compile.module.asyncworldedit.production" description="compile module AsyncWorldEdit; test classes" unless="skip.tests"/>
+  
+  <target name="clean.module.asyncworldedit" description="cleanup module">
+    <delete dir="${asyncworldedit.output.dir}"/>
+    <delete dir="${asyncworldedit.testoutput.dir}"/>
+  </target>
+</project>

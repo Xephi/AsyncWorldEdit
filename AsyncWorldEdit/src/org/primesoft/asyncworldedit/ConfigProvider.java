@@ -24,6 +24,8 @@
 package org.primesoft.asyncworldedit;
 
 import java.util.HashSet;
+import java.util.Set;
+
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.primesoft.asyncworldedit.worldedit.WorldeditOperations;
@@ -75,6 +77,8 @@ public class ConfigProvider {
 
     private static HashSet<WorldeditOperations> m_allowedOperations;
 
+    private static boolean m_plotMeClearingEnabled;
+
     private static boolean m_physicsFreez;
 
     private static boolean m_checkAccess;
@@ -88,6 +92,11 @@ public class ConfigProvider {
     private static boolean m_isTalkative;
 
     private static boolean m_useBarAPI;
+
+
+    public static boolean isM_plotMeClearingEnabled() {
+        return m_plotMeClearingEnabled;
+    }
 
     /**
      * Whether or not setting values to the BarAPI bar will be shown
@@ -284,6 +293,8 @@ public class ConfigProvider {
 
         m_allowedOperations = parseOperationsSection(mainSection);
 
+        m_plotMeClearingEnabled = mainSection.getBoolean("plotMeClearinEnabled", true);
+
         return true;
     }
 
@@ -375,5 +386,15 @@ public class ConfigProvider {
             m_logBlocks = bhSection.getBoolean("logBlocks", true);
             m_checkAccess = bhSection.getBoolean("checkAccess", false);
         }
+    }
+
+    private static Set<String> parsePlotAliasesSection(ConfigurationSection section) {
+        Set<String> aliases = new HashSet<>();
+        if(section != null) {
+            for(String alias : section.getStringList("plotMeClearAliases")) {
+                aliases.add(alias);
+            }
+        }
+        return aliases;
     }
 }
