@@ -94,7 +94,7 @@ public class ConfigProvider {
     private static boolean m_useBarAPI;
 
 
-    public static boolean isM_plotMeClearingEnabled() {
+    public static boolean isPlotMeClearingEnabled() {
         return m_plotMeClearingEnabled;
     }
 
@@ -287,13 +287,13 @@ public class ConfigProvider {
         m_plotMeFixEnabled = mainSection.getBoolean("plotMeFixEnabled", true);
         m_cleanOnLogout = mainSection.getBoolean("cleanOnLogout", true);
         m_useBarAPI = mainSection.getBoolean("use-barapi");
+        m_plotMeClearingEnabled = mainSection.getBoolean("plotMeClearingEnabled", true);
 
         parseRenderSection(mainSection);
         parseBlocksHubSection(mainSection.getConfigurationSection("blocksHub"));
 
         m_allowedOperations = parseOperationsSection(mainSection);
 
-        m_plotMeClearingEnabled = mainSection.getBoolean("plotMeClearinEnabled", true);
 
         return true;
     }

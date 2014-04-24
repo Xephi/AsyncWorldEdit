@@ -86,7 +86,7 @@ public class WorldeditIntegrator implements Runnable {
     /**
      * The world edit plugin
      */
-    private final WorldEditPlugin m_plugin;
+    private static WorldEditPlugin m_plugin;
 
     /**
      * Current world edit session factory
@@ -259,4 +259,5 @@ public class WorldeditIntegrator implements Runnable {
         setController(m_plugin, m_worldEdit);
         setLocalSessionFactory(m_plugin.getWorldEdit(), new HashMap<String, LocalSession>());
     }
+
 }

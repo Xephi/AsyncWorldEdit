@@ -60,8 +60,13 @@ public class PluginMain extends JavaPlugin {
     private BlockPlacer m_blockPlacer;
     private WorldeditIntegrator m_weIntegrator;
     private PlotMeFix m_plotMeFix;
+    private PlotMeClear m_plotMeClear;
     private PlayerManager m_playerManager = new PlayerManager(this);
     private BarAPIntegrator m_barApi;
+
+    public PlotMeClear getPlotMeClear() {
+        return m_plotMeClear;
+    }
 
     public PlayerManager getPlayerManager() {
         return m_playerManager;
@@ -151,6 +156,7 @@ public class PluginMain extends JavaPlugin {
         m_blocksHub = new BlocksHubIntegration(this);
         m_blockPlacer = new BlockPlacer(this);
         m_plotMeFix = new PlotMeFix(this);
+        m_plotMeClear = new PlotMeClear(this);
 
         if (ConfigProvider.getCheckUpdate()) {
             log(VersionChecker.CheckVersion(desc.getVersion()));
