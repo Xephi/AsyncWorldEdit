@@ -23,8 +23,12 @@
  */
 package org.primesoft.asyncworldedit;
 
+import com.sk89q.worldedit.*;
+import com.sk89q.worldedit.blocks.BaseBlock;
+import com.sk89q.worldedit.bukkit.BukkitUtil;
 import com.worldcretornica.plotme.*;
 import org.bukkit.*;
+import org.bukkit.Location;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -40,6 +44,7 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.primesoft.asyncworldedit.worldedit.WorldeditIntegrator;
 import org.yaml.snakeyaml.Yaml;
 import sun.org.mozilla.javascript.internal.ContextFactory;
 
@@ -272,6 +277,10 @@ public class PlotMeFix implements Listener {
             }
         }
 
+        LocalPlayer lplayer = WorldeditIntegrator.getWorldEditPlugin().wrapPlayer(player);
+        LocalSession session = WorldEdit.getInstance().getSession(player.getName());
+        EditSession editSession = session.createEditSession(lplayer);
+
         for (int x = bottomX; x <= topX; x++) {
             for (int z = bottomZ; z <= topZ; z++) {
                 Block block = new Location(w, x, 0, z).getBlock();
@@ -298,24 +307,29 @@ public class PlotMeFix implements Listener {
                         }
                     }
 
+                    Vector v = BukkitUtil.toVector(block);
 
-                    if (y == 0)
-                        block.setTypeId(pmi.BottomBlockId);
-                    else if (y < pmi.RoadHeight)
-                        block.setTypeId(pmi.PlotFillingBlockId);
-                    else if (y == pmi.RoadHeight)
-                        block.setTypeId(pmi.PlotFloorBlockId);
-                    else {
-                        if (y == (pmi.RoadHeight + 1) &&
-                                (x == bottomX - 1 ||
-                                        x == topX + 1 ||
-                                        z == bottomZ - 1 ||
-                                        z == topZ + 1)) {
-                            //block.setTypeId(pmi.WallBlockId);
-                        } else {
-                            block.setTypeIdAndData(0, (byte) 0, false); //.setType(Material.AIR);
+                    try {
+
+                        if (y == 0)
+                            editSession.setBlock(v, new BaseBlock(pmi.BottomBlockId));
+                        else if (y < pmi.RoadHeight)
+                            editSession.setBlock(v, new BaseBlock(pmi.PlotFillingBlockId));
+                        else if (y == pmi.RoadHeight)
+                            editSession.setBlock(v, new BaseBlock(pmi.PlotFloorBlockId));
+                        else {
+                            if (y == (pmi.RoadHeight + 1) &&
+                                    (x == bottomX - 1 ||
+                                            x == topX + 1 ||
+                                            z == bottomZ - 1 ||
+                                            z == topZ + 1)) {
+                                //block.setTypeId(pmi.WallBlockId);
+                            } else {
+                                editSession.setBlock(v, new BaseBlock(0));
+                            }
                         }
-                    }
+                    } catch (MaxChangedBlocksException ex) {
+                    } ;
                 }
             }
         }
