@@ -6,7 +6,6 @@ import com.sk89q.worldedit.blocks.BaseBlock;
 import com.sk89q.worldedit.bukkit.BukkitUtil;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.worldcretornica.plotme.*;
-import net.milkbowl.vault.Vault;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.*;
 import org.bukkit.Location;
@@ -28,7 +27,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -122,7 +120,7 @@ public class PlotMeClear implements Listener {
 
     private String[] getArgs(String command) {
         String[] args = spacePattern.split(command);
-        if(args.length <= 1) {
+        if (args.length <= 1) {
             return new String[0];
         }
         return Arrays.copyOfRange(args, 1, args.length);
@@ -130,7 +128,7 @@ public class PlotMeClear implements Listener {
 
     private String getCommandBase(String command) {
         String[] args = spacePattern.split(command);
-        if(args.length >= 2) {
+        if (args.length >= 2) {
             return (args[0] + " " + args[1]).toLowerCase();
         }
         return null;
@@ -142,7 +140,7 @@ public class PlotMeClear implements Listener {
             handlePlotClear(event.getPlayer());
         } else if (isCommand("CommandReset", event)) {
             handlePlotReset(event.getPlayer());
-        } else if(isCommand("CommandMove", event)) {
+        } else if (isCommand("CommandMove", event)) {
             handlePlotMove(event.getPlayer(), getArgs(event.getMessage()));
         }
     }
@@ -190,7 +188,7 @@ public class PlotMeClear implements Listener {
 
                             if (plot.owner.equalsIgnoreCase(playername) || PlotMe.cPerms(p, "PlotMe.admin.clear")) {
 
-                                asyncClear(p, plot);
+                                asyncClearPlot(p, plot);
                                 Send(p, C("MsgPlotCleared"));
 
                                 if (isAdv)
@@ -227,7 +225,7 @@ public class PlotMeClear implements Listener {
                         World w = p.getWorld();
 
                         setBiome(w, id, plot, Biome.PLAINS);
-                        asyncClear(p, plot);
+                        asyncClearPlot(p, plot);
 
                         if (isEconomyEnabled(p)) {
                             if (plot.auctionned) {
@@ -294,227 +292,207 @@ public class PlotMeClear implements Listener {
         return true;
     }
 
-    private boolean handlePlotMove(Player p, String[] args)
-    {
-        if (PlotMe.cPerms(p, "PlotMe.admin.move"))
-        {
-            if(!isPlotWorld(p))
-            {
+    private boolean handlePlotMove(Player p, String[] args) {
+        if (PlotMe.cPerms(p, "PlotMe.admin.move")) {
+            if (!isPlotWorld(p)) {
                 Send(p, RED + C("MsgNotPlotWorld"));
-            }
-            else
-            {
-                if(args.length < 3 || args[1].equalsIgnoreCase("") || args[2].equalsIgnoreCase(""))
-                {
+            } else {
+                if (args.length < 3 || args[1].equalsIgnoreCase("") || args[2].equalsIgnoreCase("")) {
                     Send(p, C("WordUsage") + ": " + RED + "/plotme " + C("CommandMove") + " <" + C("WordIdFrom") + "> <" + C("WordIdTo") + "> " +
                             RESET + C("WordExample") + ": " + RED + "/plotme " + C("CommandMove") + " 0;1 2;-1");
-                }
-                else
-                {
+                } else {
                     String plot1 = args[1];
                     String plot2 = args[2];
 
-                    if(!isValidId(plot1) || !isValidId(plot2))
-                    {
+                    if (!isValidId(plot1) || !isValidId(plot2)) {
                         Send(p, C("WordUsage") + ": " + RED + "/plotme " + C("CommandMove") + " <" + C("WordIdFrom") + "> <" + C("WordIdTo") + "> " +
                                 RESET + C("WordExample") + ": " + RED + "/plotme " + C("CommandMove") + " 0;1 2;-1");
                         return true;
-                    }
-                    else
-                    {
-                        if(asyncMovePlot(p, plot1, plot2))
-                        {
+                    } else {
+                        if (asyncMovePlot(p, plot1, plot2)) {
                             Send(p, C("MsgPlotMovedSuccess"));
 
-                            if(isAdv)
+                            if (isAdv)
                                 PlotMe.logger.info(LOG + p.getName() + " " + C("MsgExchangedPlot") + " " + plot1 + " " + C("MsgAndPlot") + " " + plot2);
-                        }
-                        else
+                        } else
                             Send(p, RED + C("ErrMovingPlot"));
                     }
                 }
             }
-        }
-        else
-        {
+        } else {
             Send(p, RED + C("MsgPermissionDenied"));
         }
         return true;
     }
 
     private boolean asyncMovePlot(Player p, String idFrom, String idTo) {
-        {
+        World w = p.getWorld();
+        Location plot1Bottom = getPlotBottomLoc(w, idFrom);
+        Location plot2Bottom = getPlotBottomLoc(w, idTo);
+        Location plot1Top = getPlotTopLoc(w, idFrom);
 
-            World w = p.getWorld();
-            Location plot1Bottom = getPlotBottomLoc(w, idFrom);
-            Location plot2Bottom = getPlotBottomLoc(w, idTo);
-            Location plot1Top = getPlotTopLoc(w, idFrom);
+        int distanceX = plot1Bottom.getBlockX() - plot2Bottom.getBlockX();
+        int distanceZ = plot1Bottom.getBlockZ() - plot2Bottom.getBlockZ();
 
-            int distanceX = plot1Bottom.getBlockX() - plot2Bottom.getBlockX();
-            int distanceZ = plot1Bottom.getBlockZ() - plot2Bottom.getBlockZ();
+        LocalPlayer lplayer = worldEditPlugin.wrapPlayer(p);
+        LocalSession session = WorldEdit.getInstance().getSession(p.getName());
+        EditSession editSession = session.createEditSession(lplayer);
 
-            for(int x = plot1Bottom.getBlockX(); x <= plot1Top.getBlockX(); x++)
-            {
-                for(int z = plot1Bottom.getBlockZ(); z <= plot1Top.getBlockZ(); z++)
-                {
-                    Block plot1Block = w.getBlockAt(new Location(w, x, 0, z));
-                    Block plot2Block = w.getBlockAt(new Location(w, x - distanceX, 0, z - distanceZ));
+        for (int x = plot1Bottom.getBlockX(); x <= plot1Top.getBlockX(); x++) {
+            for (int z = plot1Bottom.getBlockZ(); z <= plot1Top.getBlockZ(); z++) {
+                Block plot1Block = w.getBlockAt(new Location(w, x, 0, z));
+                Block plot2Block = w.getBlockAt(new Location(w, x - distanceX, 0, z - distanceZ));
 
-                    String plot1Biome = plot1Block.getBiome().name();
-                    String plot2Biome = plot2Block.getBiome().name();
+                String plot1Biome = plot1Block.getBiome().name();
+                String plot2Biome = plot2Block.getBiome().name();
 
-                    plot1Block.setBiome(Biome.valueOf(plot2Biome));
-                    plot2Block.setBiome(Biome.valueOf(plot1Biome));
+                plot1Block.setBiome(Biome.valueOf(plot2Biome));
+                plot2Block.setBiome(Biome.valueOf(plot1Biome));
 
-                    for(int y = 0; y < w.getMaxHeight() ; y++)
-                    {
-                        plot1Block = w.getBlockAt(new Location(w, x, y, z));
-                        int plot1Type = plot1Block.getTypeId();
-                        byte plot1Data = plot1Block.getData();
+                for (int y = 0; y < w.getMaxHeight(); y++) {
+                    plot1Block = w.getBlockAt(new Location(w, x, y, z));
+                    int plot1Type = plot1Block.getTypeId();
+                    byte plot1Data = plot1Block.getData();
+                    BaseBlock baseBlock1 = new BaseBlock(plot1Type, plot1Data);
+                    Vector v1 = BukkitUtil.toVector(plot1Block);
 
-                        plot2Block = w.getBlockAt(new Location(w, x - distanceX, y, z - distanceZ));
-                        int plot2Type = plot2Block.getTypeId();
-                        byte plot2Data = plot2Block.getData();
+                    plot2Block = w.getBlockAt(new Location(w, x - distanceX, y, z - distanceZ));
+                    int plot2Type = plot2Block.getTypeId();
+                    byte plot2Data = plot2Block.getData();
+                    BaseBlock baseBlock2 = new BaseBlock(plot2Type, plot2Data);
+                    Vector v2 = BukkitUtil.toVector(plot2Block);
 
-                        //plot1Block.setTypeId(plot2Type);
-                        plot1Block.setTypeIdAndData(plot2Type, plot2Data, false);
-                        plot1Block.setData(plot2Data);
+                    //plot1Block.setTypeId(plot2Type);
+                    try {
+
+                        editSession.setBlock(v1, baseBlock2);
+                        //plot1Block.setTypeIdAndData(plot2Type, plot2Data, false);
+                        //plot1Block.setData(plot2Data);
 
                         //net.minecraft.server.World world = ((org.bukkit.craftbukkit.CraftWorld) w).getHandle();
                         //world.setRawTypeIdAndData(plot1Block.getX(), plot1Block.getY(), plot1Block.getZ(), plot2Type, plot2Data);
 
-
-
+                        editSession.setBlock(v2, baseBlock1);
                         //plot2Block.setTypeId(plot1Type);
-                        plot2Block.setTypeIdAndData(plot1Type, plot1Data, false);
-                        plot2Block.setData(plot1Data);
+                        //plot2Block.setTypeIdAndData(plot1Type, plot1Data, false);
+                        //plot2Block.setData(plot1Data);
                         //world.setRawTypeIdAndData(plot2Block.getX(), plot2Block.getY(), plot2Block.getZ(), plot1Type, plot1Data);
+
+                    } catch (MaxChangedBlocksException e) {
+                        e.printStackTrace();
                     }
                 }
             }
-
-            HashMap<String, Plot> plots = getPlots(w);
-
-            if(plots.containsKey(idFrom))
-            {
-                if(plots.containsKey(idTo))
-                {
-                    Plot plot1 = plots.get(idFrom);
-                    Plot plot2 = plots.get(idTo);
-
-                    int idX = getIdX(idTo);
-                    int idZ = getIdZ(idTo);
-                    SqlManager.deletePlot(idX, idZ, plot2.world);
-                    plots.remove(idFrom);
-                    plots.remove(idTo);
-                    idX = getIdX(idFrom);
-                    idZ = getIdZ(idFrom);
-                    SqlManager.deletePlot(idX, idZ, plot1.world);
-
-                    plot2.id = "" + idX + ";" + idZ;
-                    SqlManager.addPlot(plot2, idX, idZ, w);
-                    plots.put(idFrom, plot2);
-
-                    for(int i = 0 ; i < plot2.comments.size() ; i++)
-                    {
-                        SqlManager.addPlotComment(plot2.comments.get(i), i, idX, idZ, plot2.world);
-                    }
-
-                    for(String player : plot2.allowed())
-                    {
-                        SqlManager.addPlotAllowed(player, idX, idZ, plot2.world);
-                    }
-
-                    idX = getIdX(idTo);
-                    idZ = getIdZ(idTo);
-                    plot1.id = "" + idX + ";" + idZ;
-                    SqlManager.addPlot(plot1, idX, idZ, w);
-                    plots.put(idTo, plot1);
-
-                    for(int i = 0 ; i < plot1.comments.size() ; i++)
-                    {
-                        SqlManager.addPlotComment(plot1.comments.get(i), i, idX, idZ, plot1.world);
-                    }
-
-                    for(String player : plot1.allowed())
-                    {
-                        SqlManager.addPlotAllowed(player, idX, idZ, plot1.world);
-                    }
-
-                    setOwnerSign(w, plot1);
-                    setSellSign(w, plot1);
-                    setOwnerSign(w, plot2);
-                    setSellSign(w, plot2);
-
-                }
-                else
-                {
-                    Plot plot = plots.get(idFrom);
-
-                    int idX = getIdX(idFrom);
-                    int idZ = getIdZ(idFrom);
-                    SqlManager.deletePlot(idX, idZ, plot.world);
-                    plots.remove(idFrom);
-                    idX = getIdX(idTo);
-                    idZ = getIdZ(idTo);
-                    plot.id = "" + idX + ";" + idZ;
-                    SqlManager.addPlot(plot, idX, idZ, w);
-                    plots.put(idTo, plot);
-
-                    for(int i = 0 ; i < plot.comments.size() ; i++)
-                    {
-                        SqlManager.addPlotComment(plot.comments.get(i), i, idX, idZ, plot.world);
-                    }
-
-                    for(String player : plot.allowed())
-                    {
-                        SqlManager.addPlotAllowed(player, idX, idZ, plot.world);
-                    }
-
-                    setOwnerSign(w, plot);
-                    setSellSign(w, plot);
-                    removeOwnerSign(w, idFrom);
-                    removeSellSign(w, idFrom);
-
-                }
-            }else{
-                if(plots.containsKey(idTo))
-                {
-                    Plot plot = plots.get(idTo);
-
-                    int idX = getIdX(idTo);
-                    int idZ = getIdZ(idTo);
-                    SqlManager.deletePlot(idX, idZ, plot.world);
-                    plots.remove(idTo);
-
-                    idX = getIdX(idFrom);
-                    idZ = getIdZ(idFrom);
-                    plot.id = "" + idX + ";" + idZ;
-                    SqlManager.addPlot(plot, idX, idZ, w);
-                    plots.put(idFrom, plot);
-
-                    for(int i = 0 ; i < plot.comments.size() ; i++)
-                    {
-                        SqlManager.addPlotComment(plot.comments.get(i), i, idX, idZ, plot.world);
-                    }
-
-                    for(String player : plot.allowed())
-                    {
-                        SqlManager.addPlotAllowed(player, idX, idZ, plot.world);
-                    }
-
-                    setOwnerSign(w, plot);
-                    setSellSign(w, plot);
-                    removeOwnerSign(w, idTo);
-                    removeSellSign(w, idTo);
-                }
-            }
-
-            return true;
         }
+
+        HashMap<String, Plot> plots = getPlots(w);
+
+        if (plots.containsKey(idFrom)) {
+            if (plots.containsKey(idTo)) {
+                Plot plot1 = plots.get(idFrom);
+                Plot plot2 = plots.get(idTo);
+
+                int idX = getIdX(idTo);
+                int idZ = getIdZ(idTo);
+                SqlManager.deletePlot(idX, idZ, plot2.world);
+                plots.remove(idFrom);
+                plots.remove(idTo);
+                idX = getIdX(idFrom);
+                idZ = getIdZ(idFrom);
+                SqlManager.deletePlot(idX, idZ, plot1.world);
+
+                plot2.id = "" + idX + ";" + idZ;
+                SqlManager.addPlot(plot2, idX, idZ, w);
+                plots.put(idFrom, plot2);
+
+                for (int i = 0; i < plot2.comments.size(); i++) {
+                    SqlManager.addPlotComment(plot2.comments.get(i), i, idX, idZ, plot2.world);
+                }
+
+                for (String player : plot2.allowed()) {
+                    SqlManager.addPlotAllowed(player, idX, idZ, plot2.world);
+                }
+
+                idX = getIdX(idTo);
+                idZ = getIdZ(idTo);
+                plot1.id = "" + idX + ";" + idZ;
+                SqlManager.addPlot(plot1, idX, idZ, w);
+                plots.put(idTo, plot1);
+
+                for (int i = 0; i < plot1.comments.size(); i++) {
+                    SqlManager.addPlotComment(plot1.comments.get(i), i, idX, idZ, plot1.world);
+                }
+
+                for (String player : plot1.allowed()) {
+                    SqlManager.addPlotAllowed(player, idX, idZ, plot1.world);
+                }
+
+                setOwnerSign(w, plot1);
+                setSellSign(w, plot1);
+                setOwnerSign(w, plot2);
+                setSellSign(w, plot2);
+
+            } else {
+                Plot plot = plots.get(idFrom);
+
+                int idX = getIdX(idFrom);
+                int idZ = getIdZ(idFrom);
+                SqlManager.deletePlot(idX, idZ, plot.world);
+                plots.remove(idFrom);
+                idX = getIdX(idTo);
+                idZ = getIdZ(idTo);
+                plot.id = "" + idX + ";" + idZ;
+                SqlManager.addPlot(plot, idX, idZ, w);
+                plots.put(idTo, plot);
+
+                for (int i = 0; i < plot.comments.size(); i++) {
+                    SqlManager.addPlotComment(plot.comments.get(i), i, idX, idZ, plot.world);
+                }
+
+                for (String player : plot.allowed()) {
+                    SqlManager.addPlotAllowed(player, idX, idZ, plot.world);
+                }
+
+                setOwnerSign(w, plot);
+                setSellSign(w, plot);
+                removeOwnerSign(w, idFrom);
+                removeSellSign(w, idFrom);
+
+            }
+        } else {
+            if (plots.containsKey(idTo)) {
+                Plot plot = plots.get(idTo);
+
+                int idX = getIdX(idTo);
+                int idZ = getIdZ(idTo);
+                SqlManager.deletePlot(idX, idZ, plot.world);
+                plots.remove(idTo);
+
+                idX = getIdX(idFrom);
+                idZ = getIdZ(idFrom);
+                plot.id = "" + idX + ";" + idZ;
+                SqlManager.addPlot(plot, idX, idZ, w);
+                plots.put(idFrom, plot);
+
+                for (int i = 0; i < plot.comments.size(); i++) {
+                    SqlManager.addPlotComment(plot.comments.get(i), i, idX, idZ, plot.world);
+                }
+
+                for (String player : plot.allowed()) {
+                    SqlManager.addPlotAllowed(player, idX, idZ, plot.world);
+                }
+
+                setOwnerSign(w, plot);
+                setSellSign(w, plot);
+                removeOwnerSign(w, idTo);
+                removeSellSign(w, idTo);
+            }
+        }
+
+        return true;
     }
 
-    private void asyncClear(Player player, Plot plot) {
+    private void asyncClearPlot(Player player, Plot plot) {
         Location bottom = getPlotBottomLoc(player.getWorld(), plot.id);
         Location top = getPlotTopLoc(player.getWorld(), plot.id);
 
@@ -634,7 +612,7 @@ public class PlotMeClear implements Listener {
     }
 
     private String f(double price, boolean showsign) {
-        Class<?>[] types = new Class<?>[]{double.class,boolean.class};
+        Class<?>[] types = new Class<?>[]{double.class, boolean.class};
         return (String) invoke("f", types, showsign);
     }
 
@@ -644,7 +622,7 @@ public class PlotMeClear implements Listener {
             Method method = pmCommand.getClass().getDeclaredMethod(name, types);
             method.setAccessible(true);
             return method.invoke(pmCommand, args);
-        } catch (NoSuchMethodException|InvocationTargetException|IllegalAccessException e) {
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
             PluginMain.log("PlotMe reflection failed");
             e.printStackTrace();
             return null;
