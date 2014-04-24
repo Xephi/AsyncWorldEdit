@@ -47,7 +47,7 @@ public class PlotMeClear implements Listener {
     private static final Pattern spacePattern = Pattern.compile(" ");
 
     public PlotMeClear(JavaPlugin plugin) {
-        if (ConfigProvider.isPlotMeFixEnabled()) {
+        if (ConfigProvider.isPlotMeClearingEnabled()) {
             worldEditPlugin = Util.hook("WorldEdit", WorldEditPlugin.class);
             PlotMe plotMe = Util.hook("PlotMe", PlotMe.class);
             if (worldEditPlugin != null && plotMe != null) {
