@@ -40,13 +40,13 @@ import static com.worldcretornica.plotme.PlotManager.*;
 /**
  * @author EDawg878 <EDawg878@gmail.com>
  */
-public class PlotMeClear extends PlotMeWrapper implements Listener {
+public class AsyncPlotMe extends PlotMeWrapper implements Listener {
 
     private static WorldEditPlugin worldEditPlugin;
     private static Map<String, Set<String>> aliases;
     private static final Pattern spacePattern = Pattern.compile(" ");
 
-    private PlotMeClear(PMCommand pmCommand) {
+    private AsyncPlotMe(PMCommand pmCommand) {
         super(pmCommand);
     }
 
@@ -58,8 +58,8 @@ public class PlotMeClear extends PlotMeWrapper implements Listener {
                 aliases = initializeAliases(SUPPORTED_COMMANDS);
                 if (fetchAliases(plugin)) {
                     checkVersion(plotMe);
-                    PlotMeClear plotMeClear = new PlotMeClear(new PMCommand(plotMe));
-                    plugin.getServer().getPluginManager().registerEvents(plotMeClear, plugin);
+                    AsyncPlotMe asyncPlotMe = new AsyncPlotMe(new PMCommand(plotMe));
+                    plugin.getServer().getPluginManager().registerEvents(asyncPlotMe, plugin);
                     PluginMain.log("PlotMe clearing enabled.");
                 }
             }
