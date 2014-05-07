@@ -24,7 +24,7 @@
 package org.primesoft.asyncworldedit;
 
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
-import java.io.IOException;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.ChatColor;
@@ -39,6 +39,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.primesoft.asyncworldedit.blockPlacer.BlockPlacer;
 import org.primesoft.asyncworldedit.commands.*;
 import org.primesoft.asyncworldedit.mcstats.MetricsLite;
+import org.primesoft.asyncworldedit.plotme.PlotMeClear;
+import org.primesoft.asyncworldedit.plotme.PlotMeFix;
 import org.primesoft.asyncworldedit.worldedit.WorldeditIntegrator;
 
 /**
@@ -60,13 +62,8 @@ public class PluginMain extends JavaPlugin {
     private BlockPlacer m_blockPlacer;
     private WorldeditIntegrator m_weIntegrator;
     private PlotMeFix m_plotMeFix;
-    private PlotMeClear m_plotMeClear;
     private PlayerManager m_playerManager = new PlayerManager(this);
     private BarAPIntegrator m_barApi;
-
-    public PlotMeClear getPlotMeClear() {
-        return m_plotMeClear;
-    }
 
     public PlayerManager getPlayerManager() {
         return m_playerManager;
@@ -97,11 +94,15 @@ public class PluginMain extends JavaPlugin {
     }
 
     public static void log(String msg) {
+        log(Level.INFO, msg);
+    }
+
+    public static void log(Level level, String msg) {
         if (s_log == null || msg == null || s_prefix == null) {
             return;
         }
 
-        s_log.log(Level.INFO, String.format(s_logFormat, s_prefix, msg));
+        s_log.log(level, String.format(s_logFormat, s_prefix, msg));
     }
 
     public static void say(String player, String msg) {
@@ -156,7 +157,8 @@ public class PluginMain extends JavaPlugin {
         m_blocksHub = new BlocksHubIntegration(this);
         m_blockPlacer = new BlockPlacer(this);
         m_plotMeFix = new PlotMeFix(this);
-        m_plotMeClear = new PlotMeClear(this);
+
+        PlotMeClear.enable(this);
 
         if (ConfigProvider.getCheckUpdate()) {
             log(VersionChecker.CheckVersion(desc.getVersion()));

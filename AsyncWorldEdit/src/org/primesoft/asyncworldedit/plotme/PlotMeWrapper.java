@@ -1,151 +1,43 @@
-package org.primesoft.asyncworldedit;
+package org.primesoft.asyncworldedit.plotme;
 
-import com.sk89q.worldedit.*;
-import com.sk89q.worldedit.Vector;
-import com.sk89q.worldedit.blocks.BaseBlock;
-import com.sk89q.worldedit.bukkit.BukkitUtil;
-import com.sk89q.worldedit.bukkit.WorldEditPlugin;
+import com.google.common.base.Preconditions;
 import com.worldcretornica.plotme.*;
 import net.milkbowl.vault.economy.EconomyResponse;
-import org.bukkit.*;
-import org.bukkit.Location;
-import org.bukkit.block.Biome;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Jukebox;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.primesoft.asyncworldedit.PluginMain;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.HashMap;
 
 import static com.worldcretornica.plotme.PlotManager.*;
+import static com.worldcretornica.plotme.PlotManager.isPlotWorld;
+import static com.worldcretornica.plotme.PlotManager.isValidId;
+import static org.bukkit.ChatColor.RED;
+import static org.bukkit.ChatColor.RESET;
 
 /**
  * @author EDawg878 <EDawg878@gmail.com>
  */
-public class PlotMeClear implements Listener {
+public abstract class PlotMeWrapper {
 
-    private PMCommand pmCommand;
-    private WorldEditPlugin worldEditPlugin;
-    private Map<String, Set<String>> aliases;
-    private static final Pattern spacePattern = Pattern.compile(" ");
+    private final String LOG = "[" + PlotMe.NAME + " Event] ";
+    private final boolean isAdv = PlotMe.advancedlogging;
+    protected static final String[] SUPPORTED_COMMANDS = {"CommandClear", "CommandReset", "CommandMove"};
+    protected static final String SUPPORTED_VERSION = "0.13b";
+    private final PMCommand pmCommand;
 
-    public PlotMeClear(JavaPlugin plugin) {
-        if (ConfigProvider.isPlotMeClearingEnabled()) {
-            worldEditPlugin = Util.hook("WorldEdit", WorldEditPlugin.class);
-            PlotMe plotMe = Util.hook("PlotMe", PlotMe.class);
-            if (worldEditPlugin != null && plotMe != null) {
-                pmCommand = new PMCommand(plotMe);
-                aliases = new HashMap<>();
-                aliases.put("CommandClear", new HashSet<String>());
-                aliases.put("CommandReset", new HashSet<String>());
-                aliases.put("CommandMove", new HashSet<String>());
-                if (fetchAliases(plugin)) {
-                    plugin.getServer().getPluginManager().registerEvents(this, plugin);
-                    PluginMain.log("PlotMe clearing enabled.");
-                }
-            }
-        }
+    public PlotMeWrapper(PMCommand pmCommand) {
+        this.pmCommand = pmCommand;
     }
 
-    private boolean fetchAliases(Plugin plugin) {
-        YamlConfiguration yaml;
-        File plugins = plugin.getDataFolder().getParentFile();
-        File plotme = new File(plugins, "PlotMe");
-        File config = new File(plotme, "config.yml");
-        if (config.exists()) {
-            yaml = YamlConfiguration.loadConfiguration(config);
-            String language = yaml.getString("Language");
-            File captions = new File(plugins, "PlotMe" + File.separator + "caption-" + language + ".yml");
-            if (captions.exists()) {
-                yaml = YamlConfiguration.loadConfiguration(captions);
-                Map<String, String> commands = new HashMap<>();
-                for (String key : aliases.keySet()) {
-                    commands.put(key, yaml.getString(key));
-                }
-                File jar = new File(plugins, "PlotMe.jar");
-                if (jar.exists()) {
-                    try {
-                        ZipFile zip = new ZipFile(jar);
-                        ZipEntry in = zip.getEntry("plugin.yml");
-                        InputStream stream = zip.getInputStream(in);
-                        YamlConfiguration pluginYml = YamlConfiguration.loadConfiguration(stream);
-                        List<String> plotMeAliases = pluginYml.getStringList("commands.plotme.aliases");
-                        plotMeAliases.add("plotme");
-                        String base = "/%s %s";
-                        for (Map.Entry<String, String> entry : commands.entrySet()) {
-                            for (String alias : plotMeAliases) {
-                                aliases.get(entry.getKey())
-                                        .add(String.format(base, alias, entry.getValue())
-                                                .toLowerCase());
-                            }
-                        }
-                        return true;
-                    } catch (IOException e) {
-                        PluginMain.log("Error fetching PlotMe aliases");
-                    }
-                }
-            }
-        }
-        return false;
-    }
+    abstract void asyncClear(Player player, Plot plot);
+    abstract void asyncMove(Player player, Plot plot1, Plot plot2);
 
-    private boolean isCommand(String type, PlayerCommandPreprocessEvent event) {
-        Set<String> commands = aliases.get(type);
-        if (commands != null) {
-            String base = getCommandBase(event.getMessage());
-            if (base != null && commands.contains(base)) {
-                event.setCancelled(true);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String[] getArgs(String command) {
-        String[] args = spacePattern.split(command);
-        if (args.length <= 1) {
-            return new String[0];
-        }
-        return Arrays.copyOfRange(args, 1, args.length);
-    }
-
-    private String getCommandBase(String command) {
-        String[] args = spacePattern.split(command);
-        if (args.length >= 2) {
-            return (args[0] + " " + args[1]).toLowerCase();
-        }
-        return null;
-    }
-
-    @EventHandler
-    public void onCommandPreProcess(PlayerCommandPreprocessEvent event) {
-        if (isCommand("CommandClear", event)) {
-            handlePlotClear(event.getPlayer());
-        } else if (isCommand("CommandReset", event)) {
-            handlePlotReset(event.getPlayer());
-        } else if (isCommand("CommandMove", event)) {
-            handlePlotMove(event.getPlayer(), getArgs(event.getMessage()));
-        }
-    }
-
-    private boolean handlePlotClear(Player p) {
+    protected boolean handleClear(Player p) {
         if (PlotMe.cPerms(p, "PlotMe.admin.clear") || PlotMe.cPerms(p, "PlotMe.use.clear")) {
             if (!isPlotWorld(p)) {
                 Send(p, RED + C("MsgNotPlotWorld"));
@@ -188,7 +80,7 @@ public class PlotMeClear implements Listener {
 
                             if (plot.owner.equalsIgnoreCase(playername) || PlotMe.cPerms(p, "PlotMe.admin.clear")) {
 
-                                asyncClearPlot(p, plot);
+                                asyncClear(p, plot);
                                 Send(p, C("MsgPlotCleared"));
 
                                 if (isAdv)
@@ -208,7 +100,7 @@ public class PlotMeClear implements Listener {
         return true;
     }
 
-    private boolean handlePlotReset(Player p) {
+    protected boolean handlePlotReset(Player p) {
         if (PlotMe.cPerms(p, "PlotMe.admin.reset")) {
             if (!isPlotWorld(p)) {
                 Send(p, RED + C("MsgNotPlotWorld"));
@@ -224,8 +116,7 @@ public class PlotMeClear implements Listener {
                         String id = plot.id;
                         World w = p.getWorld();
 
-                        setBiome(w, id, plot, Biome.PLAINS);
-                        asyncClearPlot(p, plot);
+                        asyncClear(p, plot);
 
                         if (isEconomyEnabled(p)) {
                             if (plot.auctionned) {
@@ -292,7 +183,7 @@ public class PlotMeClear implements Listener {
         return true;
     }
 
-    private boolean handlePlotMove(Player p, String[] args) {
+    protected boolean handlePlotMove(Player p, String[] args) {
         if (PlotMe.cPerms(p, "PlotMe.admin.move")) {
             if (!isPlotWorld(p)) {
                 Send(p, RED + C("MsgNotPlotWorld"));
@@ -309,7 +200,7 @@ public class PlotMeClear implements Listener {
                                 RESET + C("WordExample") + ": " + RED + "/plotme " + C("CommandMove") + " 0;1 2;-1");
                         return true;
                     } else {
-                        if (asyncMovePlot(p, plot1, plot2)) {
+                        if (move(p, plot1, plot2)) {
                             Send(p, C("MsgPlotMovedSuccess"));
 
                             if (isAdv)
@@ -325,66 +216,12 @@ public class PlotMeClear implements Listener {
         return true;
     }
 
-    private boolean asyncMovePlot(Player p, String idFrom, String idTo) {
+    private boolean move(Player p, String idFrom, String idTo) {
+        Plot m1 = getPlotById(p, idFrom);
+        Plot m2 = getPlotById(p, idTo);
+        if(m1 == null || m2 == null) return false;
+        asyncMove(p, m1, m2);
         World w = p.getWorld();
-        Location plot1Bottom = getPlotBottomLoc(w, idFrom);
-        Location plot2Bottom = getPlotBottomLoc(w, idTo);
-        Location plot1Top = getPlotTopLoc(w, idFrom);
-
-        int distanceX = plot1Bottom.getBlockX() - plot2Bottom.getBlockX();
-        int distanceZ = plot1Bottom.getBlockZ() - plot2Bottom.getBlockZ();
-
-        LocalPlayer lplayer = worldEditPlugin.wrapPlayer(p);
-        LocalSession session = WorldEdit.getInstance().getSession(p.getName());
-        EditSession editSession = session.createEditSession(lplayer);
-
-        for (int x = plot1Bottom.getBlockX(); x <= plot1Top.getBlockX(); x++) {
-            for (int z = plot1Bottom.getBlockZ(); z <= plot1Top.getBlockZ(); z++) {
-                Block plot1Block = w.getBlockAt(new Location(w, x, 0, z));
-                Block plot2Block = w.getBlockAt(new Location(w, x - distanceX, 0, z - distanceZ));
-
-                String plot1Biome = plot1Block.getBiome().name();
-                String plot2Biome = plot2Block.getBiome().name();
-
-                plot1Block.setBiome(Biome.valueOf(plot2Biome));
-                plot2Block.setBiome(Biome.valueOf(plot1Biome));
-
-                for (int y = 0; y < w.getMaxHeight(); y++) {
-                    plot1Block = w.getBlockAt(new Location(w, x, y, z));
-                    int plot1Type = plot1Block.getTypeId();
-                    byte plot1Data = plot1Block.getData();
-                    BaseBlock baseBlock1 = new BaseBlock(plot1Type, plot1Data);
-                    Vector v1 = BukkitUtil.toVector(plot1Block);
-
-                    plot2Block = w.getBlockAt(new Location(w, x - distanceX, y, z - distanceZ));
-                    int plot2Type = plot2Block.getTypeId();
-                    byte plot2Data = plot2Block.getData();
-                    BaseBlock baseBlock2 = new BaseBlock(plot2Type, plot2Data);
-                    Vector v2 = BukkitUtil.toVector(plot2Block);
-
-                    //plot1Block.setTypeId(plot2Type);
-                    try {
-
-                        editSession.setBlock(v1, baseBlock2);
-                        //plot1Block.setTypeIdAndData(plot2Type, plot2Data, false);
-                        //plot1Block.setData(plot2Data);
-
-                        //net.minecraft.server.World world = ((org.bukkit.craftbukkit.CraftWorld) w).getHandle();
-                        //world.setRawTypeIdAndData(plot1Block.getX(), plot1Block.getY(), plot1Block.getZ(), plot2Type, plot2Data);
-
-                        editSession.setBlock(v2, baseBlock1);
-                        //plot2Block.setTypeId(plot1Type);
-                        //plot2Block.setTypeIdAndData(plot1Type, plot1Data, false);
-                        //plot2Block.setData(plot1Data);
-                        //world.setRawTypeIdAndData(plot2Block.getX(), plot2Block.getY(), plot2Block.getZ(), plot1Type, plot1Data);
-
-                    } catch (MaxChangedBlocksException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-
         HashMap<String, Plot> plots = getPlots(w);
 
         if (plots.containsKey(idFrom)) {
@@ -488,102 +325,7 @@ public class PlotMeClear implements Listener {
                 removeSellSign(w, idTo);
             }
         }
-
         return true;
-    }
-
-    private void asyncClearPlot(Player player, Plot plot) {
-        Location bottom = getPlotBottomLoc(player.getWorld(), plot.id);
-        Location top = getPlotTopLoc(player.getWorld(), plot.id);
-
-        PlotMapInfo pmi = getMap(bottom);
-
-        int bottomX = bottom.getBlockX();
-        int topX = top.getBlockX();
-        int bottomZ = bottom.getBlockZ();
-        int topZ = top.getBlockZ();
-
-        int minChunkX = (int) Math.floor((double) bottomX / 16);
-        int maxChunkX = (int) Math.floor((double) topX / 16);
-        int minChunkZ = (int) Math.floor((double) bottomZ / 16);
-        int maxChunkZ = (int) Math.floor((double) topZ / 16);
-
-        World w = bottom.getWorld();
-
-        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                Chunk chunk = w.getChunkAt(cx, cz);
-
-                for (Entity e : chunk.getEntities()) {
-                    Location eloc = e.getLocation();
-
-                    if (!(e instanceof Player) && eloc.getBlockX() >= bottom.getBlockX() && eloc.getBlockX() <= top.getBlockX() &&
-                            eloc.getBlockZ() >= bottom.getBlockZ() && eloc.getBlockZ() <= top.getBlockZ()) {
-                        e.remove();
-                    }
-                }
-            }
-        }
-
-        LocalPlayer lplayer = worldEditPlugin.wrapPlayer(player);
-        LocalSession session = WorldEdit.getInstance().getSession(player.getName());
-        EditSession editSession = session.createEditSession(lplayer);
-
-        for (int x = bottomX; x <= topX; x++) {
-            for (int z = bottomZ; z <= topZ; z++) {
-                Block block = new Location(w, x, 0, z).getBlock();
-
-                block.setBiome(Biome.PLAINS);
-
-                for (int y = w.getMaxHeight(); y >= 0; y--) {
-                    block = new Location(w, x, y, z).getBlock();
-
-                    BlockState state = block.getState();
-
-                    if (state instanceof InventoryHolder) {
-                        InventoryHolder holder = (InventoryHolder) state;
-                        holder.getInventory().clear();
-                    }
-
-
-                    if (state instanceof Jukebox) {
-                        Jukebox jukebox = (Jukebox) state;
-                        //Remove once they fix the NullPointerException
-                        try {
-                            jukebox.setPlaying(Material.AIR);
-                        } catch (Exception e) {
-                        }
-                    }
-
-                    Vector v = BukkitUtil.toVector(block);
-
-                    try {
-
-                        if (y == 0)
-                            editSession.setBlock(v, new BaseBlock(pmi.BottomBlockId));
-                        else if (y < pmi.RoadHeight)
-                            editSession.setBlock(v, new BaseBlock(pmi.PlotFillingBlockId));
-                        else if (y == pmi.RoadHeight)
-                            editSession.setBlock(v, new BaseBlock(pmi.PlotFloorBlockId));
-                        else {
-                            if (y == (pmi.RoadHeight + 1) &&
-                                    (x == bottomX - 1 ||
-                                            x == topX + 1 ||
-                                            z == bottomZ - 1 ||
-                                            z == topZ + 1)) {
-                                //block.setTypeId(pmi.WallBlockId);
-                            } else {
-                                editSession.setBlock(v, new BaseBlock(0));
-                            }
-                        }
-                    } catch (MaxChangedBlocksException ex) {
-                    }
-                    ;
-                }
-            }
-        }
-
-        adjustWall(bottom);
     }
 
     private void Send(CommandSender cs, String text) {
@@ -613,12 +355,13 @@ public class PlotMeClear implements Listener {
 
     private String f(double price, boolean showsign) {
         Class<?>[] types = new Class<?>[]{double.class, boolean.class};
-        return (String) invoke("f", types, showsign);
+        return (String) invoke("f", types, price, showsign);
     }
 
     private Object invoke(String name, Class<?>[] types, Object... args) {
+        Preconditions.checkArgument(types.length == args.length,
+                "number of class types doesn't match number of arguments");
         try {
-            Object[] parameters = new Object[args.length];
             Method method = pmCommand.getClass().getDeclaredMethod(name, types);
             method.setAccessible(true);
             return method.invoke(pmCommand, args);
@@ -628,15 +371,5 @@ public class PlotMeClear implements Listener {
             return null;
         }
     }
-
-    private final ChatColor BLUE = ChatColor.BLUE;
-    private final ChatColor RED = ChatColor.RED;
-    private final ChatColor RESET = ChatColor.RESET;
-    private final ChatColor AQUA = ChatColor.AQUA;
-    private final ChatColor GREEN = ChatColor.GREEN;
-    private final ChatColor ITALIC = ChatColor.ITALIC;
-    private final String PREFIX = PlotMe.PREFIX;
-    private final String LOG = "[" + PlotMe.NAME + " Event] ";
-    private final boolean isAdv = PlotMe.advancedlogging;
 
 }
