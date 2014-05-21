@@ -301,7 +301,6 @@ public class WorldEditProxy extends WorldEdit {
 
     @Override
     public boolean handleCommand(LocalPlayer player, String[] split) {
-
         if (player instanceof BukkitPlayer) {
             player = new BukkitPlayerWrapper(m_plugin, getServer(), (BukkitPlayer) player);
         }
